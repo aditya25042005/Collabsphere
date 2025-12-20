@@ -93,7 +93,7 @@ const parsedUser = userlocal ? JSON.parse(userlocal) : null;
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 bg-zinc-900 rounded-lg border border-zinc-800">
-                  <p className="text-muted-foreground mb-4">You don't have any current projects</p>
+                  <p className="text-muted-foreground mb-4">{`You don't have any current projects`}</p>
                   <CreateProjectButton variant="outline" />
                 </div>
               )}
@@ -108,7 +108,7 @@ const parsedUser = userlocal ? JSON.parse(userlocal) : null;
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 bg-zinc-900 rounded-lg border border-zinc-800">
-                  <p className="text-muted-foreground">You don't have any completed projects</p>
+                  <p className="text-muted-foreground">{`You don't have any completed projects`}</p>
                 </div>
               )}
             </TabsContent>
@@ -122,7 +122,8 @@ const parsedUser = userlocal ? JSON.parse(userlocal) : null;
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 bg-zinc-900 rounded-lg border border-zinc-800">
-                  <p className="text-muted-foreground">You haven't applied to any projects</p>
+                  <p className="text-muted-foreground">
+                    {`You haven't applied to any projects`}</p>
                 </div>
               )}
             </TabsContent>
