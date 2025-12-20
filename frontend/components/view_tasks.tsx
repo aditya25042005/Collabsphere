@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import {API_BASE} from "./api"
 
 // Define the interface for the response data
 interface Task {
@@ -132,7 +133,7 @@ const ProjectTasks = ({ projectId, sprint_id }: ProjectTasksProps) => {
     setLoading(true);
     try {
       // Add sprint_id to the URL if provided
-      let url = `http://127.0.0.1:5000/project/view_tasks?project_id=${projectId}`;
+      let url = `${API_BASE}/project/view_tasks?project_id=${projectId}`;
       if (sprint_id) {
         url += `&sprint_id=${sprint_id}`;
       }
@@ -185,7 +186,7 @@ const ProjectTasks = ({ projectId, sprint_id }: ProjectTasksProps) => {
    
     
     try {
-      const response = await fetch("http://127.0.0.1:5000/project/edit_tasks/update_task", {
+      const response = await fetch(`${API_BASE}/project/edit_tasks/update_task`, {
         method: "POST",
         credentials: "include",
         headers: {

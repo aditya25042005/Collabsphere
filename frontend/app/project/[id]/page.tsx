@@ -7,6 +7,7 @@ import SprintManagement from "@/components/sprint-management"
 import { useParams } from "next/navigation"
 import Navbar from "@/components/navbar"
 import ProjectAnalytics from "@/components/project-analytics"
+import {API_BASE} from "../../../components/api"
 
 export default function ProjectPage() {
   const params = useParams()

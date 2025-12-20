@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import TeamMemberCard from "@/components/team-member-card";
 import { Search } from "lucide-react";
 import Navbar from "@/components/navbar";
+import {API_BASE} from "../../components/api"
 
 export default function TeamPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -14,7 +15,7 @@ export default function TeamPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:5000/list/users", {
+        const response = await fetch(`${API_BASE}/list/users`, {
           method: "GET",
           credentials: "include",
           headers: {

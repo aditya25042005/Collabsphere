@@ -14,7 +14,7 @@ import {
 import Navbar from "@/components/navbar"
 import { useUserContext } from "@/lib/usercontext"
 import Notification from "@/components/notification"
-
+import {API_BASE} from "../../components/api"
 interface Project {
   admin_id: number
   description: string
@@ -44,7 +44,7 @@ export default function ProjectsPage() {
     const fetchProjects = async () => {
       try {
         setLoading(true)
-        const response = await fetch("http://127.0.0.1:5000/list/projects", {
+        const response = await fetch(`${API_BASE}/list/projects`, {
           method: "POST",
           credentials: "include",
           headers: {
@@ -81,7 +81,7 @@ export default function ProjectsPage() {
   // Handle applying to a project
   const handleApplyToProject = async (projectId: number) => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/apply/project", {
+      const response = await fetch(`${API_BASE}/apply/project`, {
         method: "POST",
         credentials: "include",
         headers: {

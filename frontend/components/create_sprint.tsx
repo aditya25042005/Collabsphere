@@ -15,6 +15,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useUserContext } from "@/lib/usercontext";
 import { toast } from "sonner"; // Import toast from sonner
+import {API_BASE} from "./api"
 
 interface ApiResponse {
   message: string;
@@ -68,7 +69,7 @@ const CreateSprint = ({ project_id, onSprintCreated, onClose }: CreateSprintProp
       
       console.log("Payload:", payload);
       
-      const response = await fetch("http://127.0.0.1:5000/project/create_sprint", {
+      const response = await fetch(`${API_BASE}/project/create_sprint`, {
         method: "POST",
         credentials: "include",
         headers: {

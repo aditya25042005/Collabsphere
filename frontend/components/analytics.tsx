@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-
+import {API_BASE} from './api'
 // Define the interface for the analytics data
 interface AnalyticsData {
   burndown_data: {
@@ -55,7 +55,7 @@ const ProjectAnalytics = ({ projectId }: ProjectAnalyticsProps) => {
         setError(null); // Reset error state
 
         // Make the GET request to the backend
-        const apiUrl = `http://127.0.0.1:5000/project/analytics?project_id=${projectId}`;
+        const apiUrl = `${API_BASE}/project/analytics?project_id=${projectId}`;
         const response = await fetch(apiUrl, {
           method: "GET",
           credentials: "include",

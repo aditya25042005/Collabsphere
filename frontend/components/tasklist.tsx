@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {API_BASE} from "./api"
 
 interface Task {
   id: string;
@@ -21,7 +22,7 @@ export default function TaskList({ sprintId }: TaskListProps) {
   const fetchTasks = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`http://127.0.0.1:5000/sprint/view_tasks?sprint_id=${sprintId}`, {
+      const response = await fetch(`${API_BASE}/sprint/view_tasks?sprint_id=${sprintId}`, {
         method: "GET",
         credentials: "include",
         headers: {

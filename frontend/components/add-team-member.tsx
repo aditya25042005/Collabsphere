@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import TeamMemberCard from "@/components/team-member-card"
 import { teamMembersData } from "@/lib/sample-data"
 import { Search } from 'lucide-react'
-
+//import APIBASE from './api.tsx'
 export default function TeamPage() {
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedSkills, setSelectedSkills] = useState<string[]>([])

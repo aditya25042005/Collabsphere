@@ -7,6 +7,7 @@ interface PromotePayload {
   project_id: number;
   user_id: string;
 }
+import {API_BASE} from "./api"
 
 const PromoteUser = () => {
   const [responseMessage, setResponseMessage] = useState<string | null>(null);
@@ -17,7 +18,7 @@ const PromoteUser = () => {
         user_id: "23bcy25",
       };
       const response = await fetch(
-        "http://127.0.0.1:5000/project/add_mod/promote",
+        `${API_BASE}/project/add_mod/promote`,
         {
           method: "POST",
           credentials: "include",

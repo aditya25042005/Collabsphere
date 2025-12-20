@@ -12,12 +12,12 @@ import {
 import FingerprintJS from "@fingerprintjs/fingerprintjs";
 import { Button } from "./ui/button";
 import { useUserContext } from "../lib/usercontext";
-
 const getFingerprint = async () => {
   const fp = await FingerprintJS.load();
   const devicedata = await fp.get();
   return devicedata.visitorId; // Unique fingerprint ID
 };
+import {API_BASE} from './api'
 
 const GoogleLogin = () => {
   const router = useRouter(); // Initialize router
@@ -26,7 +26,7 @@ const GoogleLogin = () => {
   const [user_password, set_user_password] = useState("");
 
   useEffect(() => {
-    fetch("http://127.0.0.1:5000/auto_login", {
+    fetch(`${API_BASE}/auto_login`, {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       credentials: "include",
@@ -44,7 +44,7 @@ const GoogleLogin = () => {
       const uid = await user.uid;
       const fingerprint = await getFingerprint();
 
-      const response = await fetch("http://127.0.0.1:5000/verify/user_id", {
+      const response = await fetch(`${API_BASE}/verify/user_id`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken, uid, fingerprint, user_email }),
@@ -87,7 +87,7 @@ const GoogleLogin = () => {
       const uid = user.uid;
       const fingerprint = await getFingerprint();
 
-      const response = await fetch("http://127.0.0.1:5000/verify/google", {
+      const response = await fetch(`${API_BASE}/verify/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken, uid, fingerprint, email }),

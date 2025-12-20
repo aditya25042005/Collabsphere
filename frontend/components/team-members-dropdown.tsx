@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react"
+import {API_BASE} from "./api"
 
 interface TeamMember {
   id: string; // This is roll_no from the API 
@@ -30,7 +31,7 @@ const TeamMemberDropdown: React.FC<TeamMemberDropdownProps> = ({
         setError(null);
         
         // Always call the eligible_users API endpoint, regardless of purpose
-        const apiUrl = `http://127.0.0.1:5000/project/add_mod/eligible_users?project_id=${projectId}`;
+        const apiUrl = `${API_BASE}:/project/add_mod/eligible_users?project_id=${projectId}`;
         
         const response = await fetch(apiUrl, {
           method: "GET",
@@ -77,7 +78,7 @@ const TeamMemberDropdown: React.FC<TeamMemberDropdownProps> = ({
   // Function to promote a user to moderator
   const handlePromoteToMod = async (userId: string) => {
     try {
-      const response = await fetch("http://127.0.0.1:5000/project/add_mod/promote", {
+      const response = await fetch(`${API_BASE}/project/add_mod/promote`, {
         method: "POST",
         credentials: "include",
         headers: {
