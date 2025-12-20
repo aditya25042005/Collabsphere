@@ -263,7 +263,7 @@ export default function NotificationBell() {
                   
                   {notification.remarks && (
                     <p className="text-xs text-zinc-500 mb-2 italic">
-                      "{notification.remarks}"
+                        {`"${notification.remarks}"`}
                     </p>
                   )}
                   

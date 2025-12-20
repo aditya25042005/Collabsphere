@@ -126,7 +126,7 @@ const id = 'sanjay23bcy51';
   }, []);
   const [project_setting, setProjectSetting] = useState<Project[]>([]);
   useEffect(() => {
-    let user_id = id;
+    const user_id = id;
     console.log(user_id);
     const fetchCurrentProjects = async () => {
       try {
@@ -171,7 +171,7 @@ const id = 'sanjay23bcy51';
   }
   const [past_projects, setPastprojects] = useState<Past[]>([]);
   useEffect(() => {
-    let user_id = id;
+    const  user_id = id;
     const fetchPastProjects = async () => {
       try {
         const response = await fetch(

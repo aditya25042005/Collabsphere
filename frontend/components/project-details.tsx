@@ -239,7 +239,8 @@ export default function ProjectDetails({ project_id, onTitleChange }: ProjectDet
           </div>
           <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-8 text-center">
             <p className="text-muted-foreground">
-              The project you're looking for doesn't exist or you don't have access to it.
+                {"The project you're looking for doesn't exist or you don't have access to it."}
+
             </p>
           </div>
         </div>
