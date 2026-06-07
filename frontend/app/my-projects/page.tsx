@@ -10,6 +10,9 @@ import { API_BASE } from "@/lib/api"
 
 interface Project {
   admin_id: number
+  admin_name?: string
+  current_members?: number
+  user_role?: string | null
   description: string
   project_id: number
   end_date: string

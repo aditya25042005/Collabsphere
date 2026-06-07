@@ -15,6 +15,7 @@ import { API_BASE } from "@/lib/api"
 interface SprintManagementProps {
   project_id: number;
   projectTitle?: string;
+  isProjectClosed?: boolean;
 }
 
 interface Sprint {
@@ -26,7 +27,7 @@ interface Sprint {
   id?: number // Add optional id for backward compatibility
 }
 
-export default function SprintManagement({ project_id, projectTitle }: SprintManagementProps) {
+export default function SprintManagement({ project_id, projectTitle, isProjectClosed = false }: SprintManagementProps) {
   const { user } = useUserContext()
   const [sprints, setSprints] = useState<Sprint[]>([])
   const [selectedSprintId, setSelectedSprintId] = useState<number | undefined>(undefined);
@@ -84,127 +85,178 @@ export default function SprintManagement({ project_id, projectTitle }: SprintMan
   }, [selectedSprintId, sprints])
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-pink-500">
-        {projectTitle ? `Sprint Management: ${projectTitle}` : 'Sprint Management'}
-      </h1>
-      <div className="flex items-center gap-4">
-        <Dialog open={isCreateSprintOpen} onOpenChange={setIsCreateSprintOpen}>
-          <DialogTrigger asChild>
-            <Button className="bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:text-black hover:to-blue-600">
-              Create Sprint
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Sprint</DialogTitle>
-            </DialogHeader>
-            <CreateSprint
-              project_id={project_id}
-              onSprintCreated={() => {
-                fetchSprints();
-                setIsCreateSprintOpen(false);
-              }}
-              onClose={() => setIsCreateSprintOpen(false)}
-            />
-          </DialogContent>
-        </Dialog>
-        
-        <Dialog open={isCreateTaskOpen} onOpenChange={setIsCreateTaskOpen}>
-          <DialogTrigger asChild>
-            <Button 
-              className="bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:text-black hover:to-blue-600"
-              disabled={!selectedSprintId}
-            >
-              Create Task
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Task</DialogTitle>
-            </DialogHeader>
-            <TaskForm 
-              projectId={project_id} 
-              onTaskAdded={() => {
-                fetchSprints();
-                setIsCreateTaskOpen(false);
-              }} 
-              sprint_id={selectedSprintId} 
-            />
-          </DialogContent>
-        </Dialog>
-        
-     {/*   <TeamMemberDropdown projectId={project_id} label="Assign Moderator" purpose="moderator" onSelect={function (userId: string, userName: string): void {
-          throw new Error("Function not implemented.")
-        } } />*/}
+    <div className="space-y-4">
+      {/* Closed banner */}
+      {isProjectClosed && (
+        <div className="flex items-center gap-2 px-4 py-2 rounded-md bg-zinc-800 border border-zinc-700 text-zinc-400 text-sm">
+          <span className="w-2 h-2 rounded-full bg-zinc-500 inline-block" />
+          This project is closed. No new sprints or tasks can be created and task statuses are locked.
+        </div>
+      )}
+
+      {/* Header + action buttons */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-pink-500">
+          {projectTitle ? `Sprint Management: ${projectTitle}` : 'Sprint Management'}
+        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <Dialog open={isCreateSprintOpen} onOpenChange={setIsCreateSprintOpen}>
+            <DialogTrigger asChild>
+              <Button
+                size="sm"
+                disabled={isProjectClosed}
+                className="bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:text-black hover:to-blue-600 disabled:opacity-40"
+              >
+                Create Sprint
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Sprint</DialogTitle>
+              </DialogHeader>
+              <CreateSprint
+                project_id={project_id}
+                onSprintCreated={() => {
+                  fetchSprints();
+                  setIsCreateSprintOpen(false);
+                }}
+                onClose={() => setIsCreateSprintOpen(false)}
+              />
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={isCreateTaskOpen} onOpenChange={setIsCreateTaskOpen}>
+            <DialogTrigger asChild>
+              <Button
+                size="sm"
+                className="bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:text-black hover:to-blue-600 disabled:opacity-40"
+                disabled={!selectedSprintId || isProjectClosed}
+              >
+                Create Task
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Task</DialogTitle>
+              </DialogHeader>
+              <TaskForm
+                projectId={project_id}
+                onTaskAdded={() => {
+                  fetchSprints();
+                  setIsCreateTaskOpen(false);
+                }}
+                sprint_id={selectedSprintId}
+              />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
-      
-      {/* Updated grid layout */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Sprint list column */}
-        <div className="md:col-span-1">
+
+      {/* Sprint list — horizontal scroll on mobile, vertical sidebar on desktop */}
+      <div className="lg:hidden">
+        <p className="text-xs text-muted-foreground mb-2">Select a sprint</p>
+        <div className="flex gap-3 overflow-x-auto pb-2 snap-x snap-mandatory">
+          {sprints.length > 0 ? sprints.map(sprint => {
+            const sprintId = sprint.sprint_id !== undefined ? sprint.sprint_id : sprint.id;
+            const isSelected = selectedSprintId === sprintId;
+            return (
+              <div
+                key={sprintId}
+                onClick={() => handleSprintSelect(sprint)}
+                className={`snap-start flex-shrink-0 w-40 p-3 rounded-lg cursor-pointer border transition-colors ${
+                  isSelected
+                    ? 'bg-pink-100 border-pink-500 text-black'
+                    : 'bg-zinc-900 border-zinc-700 hover:border-pink-400'
+                }`}
+              >
+                <div className="flex items-center justify-between gap-1 mb-1">
+                  <span className={`font-medium text-sm truncate ${isSelected ? 'text-black' : ''}`}>{sprint.name}</span>
+                  <Badge
+                    variant={sprint.Status === "open" ? "default" : "outline"}
+                    className={`text-xs shrink-0 ${isSelected ? 'text-black' : ''}`}
+                  >
+                    {sprint.Status}
+                  </Badge>
+                </div>
+                {sprint.Start && sprint.End && (
+                  <p className={`text-xs ${isSelected ? 'text-gray-700' : 'text-muted-foreground'}`}>
+                    {new Date(sprint.Start).toLocaleDateString()} –<br />{new Date(sprint.End).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            );
+          }) : (
+            <p className="text-muted-foreground text-sm">No sprints yet</p>
+          )}
+        </div>
+      </div>
+
+      {/* Main content — sidebar + details on desktop, stacked on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        {/* Sidebar — hidden on mobile (handled above) */}
+        <div className="hidden lg:block lg:col-span-1">
           <Card>
-            <CardHeader>
-              <CardTitle>Project Sprints</CardTitle>
-              <CardDescription>Select a sprint to view details</CardDescription>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Project Sprints</CardTitle>
+              <CardDescription className="text-xs">Select a sprint to view details</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-2 max-h-[60vh] overflow-y-auto">
+            <CardContent className="space-y-2 max-h-[65vh] overflow-y-auto pr-1">
               {sprints.length > 0 ? (
                 sprints.map(sprint => {
-                  // Get the sprint ID consistently
                   const sprintId = sprint.sprint_id !== undefined ? sprint.sprint_id : sprint.id;
+                  const isSelected = selectedSprintId === sprintId;
                   return (
                     <div
                       key={sprintId}
                       onClick={() => handleSprintSelect(sprint)}
                       className={`p-3 rounded-md cursor-pointer transition-colors ${
-                        selectedSprintId === sprintId
+                        isSelected
                           ? 'bg-pink-100 border-l-4 border-pink-500 text-black'
                           : 'hover:bg-gray-100 hover:text-black'
                       }`}
                     >
-                      <div className="flex items-center justify-between text-inherit">
-                        <h3 className={`font-medium ${selectedSprintId === sprintId ? 'text-black' : ''}`}>
+                      <div className="flex items-center justify-between gap-1">
+                        <h3 className={`font-medium text-sm truncate ${isSelected ? 'text-black' : ''}`}>
                           {sprint.name}
                         </h3>
-                        <Badge 
-                          variant={sprint.Status === "active" ? "default" : "outline"}
-                          className={`text-xs ${selectedSprintId === sprintId ? 'text-black' : ''}`}
+                        <Badge
+                          variant={sprint.Status === "open" ? "default" : "outline"}
+                          className={`text-xs shrink-0 ${isSelected ? 'text-black' : ''}`}
                         >
                           {sprint.Status}
                         </Badge>
                       </div>
                       {sprint.Start && sprint.End && (
-                        <p className={`text-xs ${selectedSprintId === sprintId ? 'text-black' : 'text-muted-foreground'} mt-1 group-hover:text-black`}>
-                          {new Date(sprint.Start).toLocaleDateString()} - {new Date(sprint.End).toLocaleDateString()}
+                        <p className={`text-xs mt-1 ${isSelected ? 'text-gray-700' : 'text-muted-foreground'}`}>
+                          {new Date(sprint.Start).toLocaleDateString()} – {new Date(sprint.End).toLocaleDateString()}
                         </p>
                       )}
                     </div>
-                  )
+                  );
                 })
               ) : (
-                <p className="text-muted-foreground">No sprints available</p>
+                <p className="text-muted-foreground text-sm">No sprints available</p>
               )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Details and tasks column */}
-        <div className="md:col-span-3 space-y-6">
+        {/* Details and tasks */}
+        <div className="lg:col-span-3 space-y-4">
           {selectedSprint ? (
             <>
               <SprintDetails sprint={selectedSprint} />
-
               <ProjectTasks
                 projectId={project_id}
-                sprint_id={selectedSprintId} // Changed from sprint_id to sprintId to match component prop
+                sprint_id={selectedSprintId}
+                isProjectClosed={isProjectClosed}
               />
             </>
           ) : (
             <div className="text-center py-12 bg-gray-50 rounded-lg border border-dashed border-gray-300">
               <h3 className="text-lg font-medium text-gray-700 mb-2">No Sprint Selected</h3>
               <p className="text-gray-500 mb-4">Select a sprint from the list or create a new one</p>
-              <Button 
+              <Button
                 onClick={() => setIsCreateSprintOpen(true)}
                 className="bg-gradient-to-r from-pink-500 to-blue-500 hover:from-pink-600 hover:to-blue-600"
               >

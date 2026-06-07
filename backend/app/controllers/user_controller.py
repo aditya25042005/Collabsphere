@@ -5,6 +5,7 @@ from app.services.user_service import (
     profile_view_service,
     update_profile_service,
     list_users_service,
+    list_skills_service,
 )
 from app.schemas import FirstLoginSchema, UserSchema
 
@@ -14,7 +15,15 @@ def check_controller():
 
 
 def list_users_controller():
-    return list_users_service()
+    limit = int(request.args.get("limit", 10))
+    offset = int(request.args.get("offset", 0))
+    search = request.args.get("search", "").strip()
+    skills = request.args.getlist("skill")  # ?skill=React&skill=Python
+    return list_users_service(limit=limit, offset=offset, search=search, skills=skills or None)
+
+
+def list_skills_controller():
+    return list_skills_service()
 
 
 def first_login_controller():

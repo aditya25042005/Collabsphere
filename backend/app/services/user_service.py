@@ -4,6 +4,7 @@ from app.repositories.user_repository import (
     profile_views,
     update_profile_sql,
     list_users_sql,
+    list_skills_sql,
 )
 
 
@@ -23,5 +24,9 @@ def update_profile_service(data):
     return update_profile_sql(data)
 
 
-def list_users_service():
-    return list_users_sql()
+def list_users_service(limit=10, offset=0, search="", skills=None):
+    return list_users_sql(limit=limit, offset=offset, search=search, skills=skills)
+
+
+def list_skills_service():
+    return list_skills_sql()

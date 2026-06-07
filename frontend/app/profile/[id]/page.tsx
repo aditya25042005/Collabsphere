@@ -34,6 +34,7 @@ export default function SettingsPage() {
   const [techStack, setTechStack] = useState<string[]>([]);
   const [isOwnProfile, setIsOwnProfile] = useState(false); // Add state to track if viewing own profile
   const [activeTab, setActiveTab] = useState("profile"); // Track active tab
+  const [projectFilter, setProjectFilter] = useState<"all" | "active" | "completed">("all");
   // Moved inside the component
   const [userData, setuserData] = useState<User>({
     name: "",
@@ -153,15 +154,16 @@ const parsedUser = userlocal ? JSON.parse(userlocal) : null;
   }, [profileUserId]);
 
   interface Project {
-    admin_id: number; // ID of the project administrator
-    role: string; // Description of the project
-    end_date: string; // End date of the project (in ISO format)
-    members_required: number; // Number of members required for the project
-    project_id: number; // Unique identifier for the project
-    start_date: string; // Start date of the project (in ISO format)
-    status: string; // Status of the project (e.g., "Active", "Completed")
-    tags: string; // Tags associated with the project (comma-separated)
-    title: string; // Title of the project
+    admin_id: number;
+    role: string;
+    end_date: string;
+    members_required: number;
+    current_members?: number;
+    project_id: number;
+    start_date: string;
+    status: string;
+    tags: string;
+    title: string;
   }
   const [past_projects, setPastprojects] = useState<Past[]>([]);
   useEffect(() => {
@@ -192,16 +194,60 @@ const parsedUser = userlocal ? JSON.parse(userlocal) : null;
     fetchPastProjects();
   }, [profileUserId]);
   interface Past {
-    admin_id: number; // ID of the project administrator
-    role: string; // Description of the project
-    end_date: string; // End date of the project (in ISO format)
-    members_required: number; // Number of members required for the project
-    project_id: number; // Unique identifier for the project
-    start_date: string; // Start date of the project (in ISO format)
-    status: string; // Status of the project (e.g., "Active", "Completed")
-    tags: string; // Tags associated with the project (comma-separated)
-    title: string; // Title of the project
+    admin_id: number;
+    role: string;
+    end_date: string;
+    members_required: number;
+    current_members?: number;
+    project_id: number;
+    start_date: string;
+    status: string;
+    tags: string;
+    title: string;
   }
+
+  interface RatingGiven {
+    score: number;
+    comment: string;
+    created_at: string | null;
+    project_title: string;
+    project_id: number;
+  }
+  interface MemberRatingReceived {
+    score: number;
+    comment: string;
+    created_at: string | null;
+    project_title: string;
+    project_id: number;
+    rated_by_name: string;
+  }
+
+  const [ratingsGiven, setRatingsGiven] = useState<RatingGiven[]>([]);
+  const [memberRatings, setMemberRatings] = useState<MemberRatingReceived[]>([]);
+
+  useEffect(() => {
+    if (!profileUserId) return;
+    fetch(`${API_BASE}/user/ratings/given?user_id=${profileUserId}`, { credentials: "include" })
+      .then(r => r.json())
+      .then(d => setRatingsGiven(d.ratings ?? []))
+      .catch(() => {});
+    fetch(`${API_BASE}/user/ratings/received?user_id=${profileUserId}`, { credentials: "include" })
+      .then(r => r.json())
+      .then(d => setMemberRatings(d.ratings ?? []))
+      .catch(() => {});
+  }, [profileUserId]);
+
+  const renderStars = (score: number, outOf = 5) => {
+    const filled = Math.round(score);
+    return (
+      <span className="flex gap-0.5">
+        {Array.from({ length: outOf }).map((_, i) => (
+          <span key={i} className={i < filled ? "text-yellow-400" : "text-zinc-600"}>★</span>
+        ))}
+      </span>
+    );
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // Prepare the data to match the API's expected format
@@ -282,6 +328,14 @@ const parsedUser = userlocal ? JSON.parse(userlocal) : null;
 
             {isOwnProfile && (
               <div className="flex items-center gap-2 flex-shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="border-zinc-700 text-zinc-400 hover:text-white hover:border-pink-500"
+                  onClick={() => setActiveTab("settings")}
+                >
+                  Edit Profile
+                </Button>
                 <Link href="/create_project">
                   <Button size="sm" className="bg-pink-600 hover:bg-pink-700 text-white">
                     <AddCircleOutlineIcon style={{ fontSize: 14, marginRight: 4 }} /> New Project
@@ -322,7 +376,7 @@ const parsedUser = userlocal ? JSON.parse(userlocal) : null;
           </div>
 
           {/* ── Tabs ─────────────────────────────────────── */}
-          <Tabs defaultValue="profile" className="w-full">
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="bg-zinc-900 border border-zinc-800 rounded-xl p-1 mb-6 w-fit">
               <TabsTrigger value="profile" className="rounded-lg data-[state=active]:bg-pink-600 data-[state=active]:text-white text-zinc-400 px-5">
                 Profile
@@ -396,6 +450,58 @@ const parsedUser = userlocal ? JSON.parse(userlocal) : null;
                       </div>
                     )}
                   </div>
+
+                  {/* Member ratings received */}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500">Team Ratings</p>
+                      {u.rating > 0 && (
+                        <span className="flex items-center gap-1 text-yellow-400 text-sm font-semibold">
+                          <StarIcon style={{ fontSize: 15 }} />
+                          {Number(u.rating).toFixed(1)}
+                        </span>
+                      )}
+                    </div>
+                    {memberRatings.length === 0 ? (
+                      <p className="text-zinc-500 text-sm">No team ratings yet.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {memberRatings.map((r, i) => (
+                          <div key={i} className="border border-zinc-800 rounded-xl p-3 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <Link href={`/project/${r.project_id}`} className="text-xs text-pink-400 hover:underline truncate">{r.project_title}</Link>
+                              {renderStars(r.score)}
+                            </div>
+                            {r.comment && <p className="text-zinc-400 text-xs leading-relaxed">{r.comment}</p>}
+                            <p className="text-zinc-600 text-[11px]">by {r.rated_by_name}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Project ratings given */}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-4">Project Reviews Given</p>
+                    {ratingsGiven.length === 0 ? (
+                      <p className="text-zinc-500 text-sm">No project reviews yet.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {ratingsGiven.map((r, i) => (
+                          <div key={i} className="border border-zinc-800 rounded-xl p-3 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <Link href={`/project/${r.project_id}`} className="text-xs text-pink-400 hover:underline truncate">{r.project_title}</Link>
+                              <span className="flex items-center gap-1 text-yellow-400 text-xs font-semibold">
+                                <StarIcon style={{ fontSize: 13 }} />
+                                {Number(r.score).toFixed(1)}/5
+                              </span>
+                            </div>
+                            {r.comment && <p className="text-zinc-400 text-xs leading-relaxed">{r.comment}</p>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
@@ -404,63 +510,127 @@ const parsedUser = userlocal ? JSON.parse(userlocal) : null;
           {/* ── Projects tab ────────────────────────────── */}
           <TabsContent value="projects" className="space-y-6">
 
-            {/* Active projects */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">Active Projects</h3>
-              </div>
-              {(project_setting ?? []).length === 0 ? (
-                <p className="text-zinc-500 text-sm">No active projects.</p>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {(project_setting ?? []).map((project) => (
-                    <div key={project.project_id}
-                      className="bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-2xl p-5 flex flex-col gap-3 transition-colors">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-semibold text-white text-sm leading-snug">{project.title}</h4>
-                        <span className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full px-2.5 py-0.5">
-                          Active
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-zinc-500">
-                        <span className="flex items-center gap-1"><PersonIcon style={{ fontSize: 13 }} /> {project.role || "Member"}</span>
-                        <span className="flex items-center gap-1"><GroupsIcon style={{ fontSize: 13 }} /> {project.members_required} members</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
+            {/* Filter chips */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {(["all", "active", "completed"] as const).map((f) => {
+                const labels = { all: "All", active: "Active", completed: "Completed" };
+                const styles = {
+                  all: projectFilter === "all"
+                    ? "bg-pink-500 text-white border-pink-500"
+                    : "bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500",
+                  active: projectFilter === "active"
+                    ? "bg-emerald-500/20 text-emerald-400 border-emerald-500"
+                    : "bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500",
+                  completed: projectFilter === "completed"
+                    ? "bg-zinc-700 text-zinc-200 border-zinc-500"
+                    : "bg-transparent text-zinc-400 border-zinc-700 hover:border-zinc-500",
+                };
+                const counts = {
+                  all: (project_setting ?? []).length + (past_projects ?? []).length,
+                  active: (project_setting ?? []).length,
+                  completed: (past_projects ?? []).length,
+                };
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setProjectFilter(f)}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all ${styles[f]}`}
+                  >
+                    {f === "active" && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+                    {f === "completed" && <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />}
+                    {labels[f]}
+                    <span className="opacity-60 font-normal">{counts[f]}</span>
+                  </button>
+                );
+              })}
             </div>
 
-            {/* Past projects */}
-            <div>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="w-2 h-2 rounded-full bg-zinc-500" />
-                <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">Past Projects</h3>
+            {/* Active projects */}
+            {(projectFilter === "all" || projectFilter === "active") && (
+              <div>
+                {projectFilter === "all" && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">Active Projects</h3>
+                  </div>
+                )}
+                {(project_setting ?? []).length === 0 ? (
+                  <p className="text-zinc-500 text-sm">No active projects.</p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {(project_setting ?? []).map((project) => (
+                      <Link key={project.project_id} href={`/project/${project.project_id}`}>
+                        <div className="bg-zinc-900 border border-zinc-800 hover:border-pink-500/50 rounded-2xl p-5 flex flex-col gap-3 transition-colors cursor-pointer h-full">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-semibold text-white text-sm leading-snug">{project.title}</h4>
+                            <span className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 rounded-full px-2.5 py-0.5">
+                              Active
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-zinc-500">
+                            <span className="flex items-center gap-1"><PersonIcon style={{ fontSize: 13 }} /> {project.role || "Member"}</span>
+                            <span className="flex items-center gap-1">
+                              <GroupsIcon style={{ fontSize: 13 }} />
+                              {project.current_members !== undefined
+                                ? `${project.current_members}/${project.members_required}`
+                                : project.members_required} members
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
-              {(past_projects ?? []).length === 0 ? (
-                <p className="text-zinc-500 text-sm">No completed projects yet.</p>
-              ) : (
-                <div className="grid sm:grid-cols-2 gap-4">
-                  {(past_projects ?? []).map((project) => (
-                    <div key={project.project_id}
-                      className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 flex flex-col gap-3 opacity-80">
-                      <div className="flex items-start justify-between gap-2">
-                        <h4 className="font-semibold text-white text-sm leading-snug">{project.title}</h4>
-                        <span className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide bg-zinc-700 text-zinc-400 border border-zinc-600 rounded-full px-2.5 py-0.5">
-                          Done
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3 text-xs text-zinc-500">
-                        <span className="flex items-center gap-1"><PersonIcon style={{ fontSize: 13 }} /> {project.role || "Member"}</span>
-                        <span className="flex items-center gap-1"><GroupsIcon style={{ fontSize: 13 }} /> {project.members_required} members</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            )}
+
+            {/* Past projects */}
+            {(projectFilter === "all" || projectFilter === "completed") && (
+              <div>
+                {projectFilter === "all" && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <span className="w-2 h-2 rounded-full bg-zinc-500" />
+                    <h3 className="text-sm font-semibold uppercase tracking-widest text-zinc-400">Past Projects</h3>
+                  </div>
+                )}
+                {(past_projects ?? []).length === 0 ? (
+                  <p className="text-zinc-500 text-sm">No completed projects yet.</p>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {(past_projects ?? []).map((project) => (
+                      <Link key={project.project_id} href={`/project/${project.project_id}`}>
+                        <div className="bg-zinc-900 border border-zinc-800 hover:border-zinc-600 rounded-2xl p-5 flex flex-col gap-3 opacity-80 hover:opacity-100 transition-all cursor-pointer h-full">
+                          <div className="flex items-start justify-between gap-2">
+                            <h4 className="font-semibold text-white text-sm leading-snug">{project.title}</h4>
+                            <span className="flex-shrink-0 text-[10px] font-semibold uppercase tracking-wide bg-zinc-700 text-zinc-400 border border-zinc-600 rounded-full px-2.5 py-0.5">
+                              Done
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3 text-xs text-zinc-500">
+                            <span className="flex items-center gap-1"><PersonIcon style={{ fontSize: 13 }} /> {project.role || "Member"}</span>
+                            <span className="flex items-center gap-1">
+                              <GroupsIcon style={{ fontSize: 13 }} />
+                              {project.current_members !== undefined
+                                ? `${project.current_members}/${project.members_required}`
+                                : project.members_required} members
+                            </span>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Empty state when filtered */}
+            {projectFilter === "active" && (project_setting ?? []).length === 0 && (
+              <p className="text-zinc-500 text-sm">No active projects.</p>
+            )}
+            {projectFilter === "completed" && (past_projects ?? []).length === 0 && (
+              <p className="text-zinc-500 text-sm">No completed projects yet.</p>
+            )}
+
           </TabsContent>
           {isOwnProfile && (<TabsContent value="settings" className="space-y-6">
             <Card className="bg-gray-800 border-none">

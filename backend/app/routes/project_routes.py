@@ -9,6 +9,8 @@ from app.controllers.project_controller import (
     list_myprojects_controller,
     view_project_details_controller,
     project_analytics_controller,
+    close_project_controller,
+    update_project_status_controller,
 )
 from app.controllers.user_controller import check_controller
 
@@ -44,8 +46,8 @@ project_bp.add_url_rule(
     view_func=firebase_uid_required(list_projects_controller),
     methods=["POST"],
 )
-project_bp.add_url_rule("/list/current/projects", view_func=list_current_projects_controller, methods=["POST"])
-project_bp.add_url_rule("/list/past/projects", view_func=list_past_projects_controller, methods=["POST"])
+project_bp.add_url_rule("/list/current/projects", view_func=firebase_uid_required(list_current_projects_controller), methods=["POST"])
+project_bp.add_url_rule("/list/past/projects", view_func=firebase_uid_required(list_past_projects_controller), methods=["POST"])
 project_bp.add_url_rule(
     "/list/myprojects",
     view_func=firebase_uid_required(list_myprojects_controller),
@@ -60,6 +62,16 @@ project_bp.add_url_rule(
     "/project/analytics",
     view_func=firebase_uid_required(project_analytics_controller),
     methods=["GET"],
+)
+project_bp.add_url_rule(
+    "/project/close",
+    view_func=firebase_uid_required(close_project_controller),
+    methods=["POST"],
+)
+project_bp.add_url_rule(
+    "/project/update_status",
+    view_func=firebase_uid_required(update_project_status_controller),
+    methods=["POST"],
 )
 
 

@@ -30,13 +30,15 @@ interface ApiResponse {
 interface ProjectTasksProps {
   projectId: number;
   sprint_id?: number;
+  isProjectClosed?: boolean;
 }
 
 // Task Card Component with status change buttons
-export const TaskCard = ({ task, status, onStatusChange }: { 
-  task: Task; 
-  status: string; 
-  onStatusChange: (taskId: number, newStatus: string) => void 
+export const TaskCard = ({ task, status, onStatusChange, isProjectClosed = false }: {
+  task: Task;
+  status: string;
+  onStatusChange: (taskId: number, newStatus: string) => void;
+  isProjectClosed?: boolean;
 }) => {
   // Get status color for text
   const getStatusColor = () => {
@@ -84,45 +86,45 @@ export const TaskCard = ({ task, status, onStatusChange }: {
   };
 
   return (
-    <div className="bg-black rounded-lg p-5 mb-4 shadow-md min-h-[160px] flex flex-col justify-between">
-      <div>
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-white font-medium text-lg">Task #{task.id}</h3>
-          <span className={`px-3 py-1.5 rounded text-sm font-medium ${getStatusColor()}`}>
-            {getStatusLabel()}
-          </span>
-        </div>
-        <p className="text-gray-300 mb-4 text-base leading-relaxed">{task.description}</p>
+    <div className="bg-black rounded-lg p-4 mb-4 shadow-md flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-white font-medium text-base">Task #{task.id}</h3>
+        <span className={`text-xs font-semibold px-2 py-1 rounded whitespace-nowrap ${getStatusColor()}`}>
+          {getStatusLabel()}
+        </span>
       </div>
-      <div>
-        {/* Status change buttons */}
-        <div className="flex gap-2 mb-3">
-          {getNextStatuses().map((nextStatus) => (
-            <button
-              key={nextStatus.value}
-              onClick={() => onStatusChange(task.id, nextStatus.value)}
-              className={`text-xs px-3 py-1.5 rounded-md transition-colors ${
-                nextStatus.value === "todo" 
-                  ? "bg-blue-900 hover:bg-blue-800 text-blue-300"
-                  : nextStatus.value === "in_progress"
-                  ? "bg-yellow-900 hover:bg-yellow-800 text-yellow-300"
-                  : "bg-green-900 hover:bg-green-800 text-green-300"
-              }`}
-            >
-              {nextStatus.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex justify-between text-sm pt-2 border-t border-gray-800">
-          <span className="text-gray-400">Assignee: <span className="text-white">{task.assignee_name}</span></span>
-          <span className="text-gray-400">Points: <span className="text-white">{task.points}</span></span>
-        </div>
+
+      <p className="text-gray-300 text-sm leading-relaxed break-words">{task.description}</p>
+
+      <div className="flex flex-wrap gap-2">
+        {isProjectClosed ? (
+          <span className="text-xs text-zinc-500 italic">Project closed</span>
+        ) : getNextStatuses().map((nextStatus) => (
+          <button
+            key={nextStatus.value}
+            onClick={() => onStatusChange(task.id, nextStatus.value)}
+            className={`text-xs px-3 py-1.5 rounded-md transition-colors whitespace-nowrap ${
+              nextStatus.value.toLowerCase().includes("to do") || nextStatus.value.toLowerCase() === "to do"
+                ? "bg-blue-900 hover:bg-blue-800 text-blue-300"
+                : nextStatus.value.toLowerCase().includes("progress")
+                ? "bg-yellow-900 hover:bg-yellow-800 text-yellow-300"
+                : "bg-green-900 hover:bg-green-800 text-green-300"
+            }`}
+          >
+            {nextStatus.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap justify-between gap-2 text-xs pt-2 border-t border-gray-800">
+        <span className="text-gray-400">Assignee: <span className="text-white">{task.assignee_name}</span></span>
+        <span className="text-gray-400">Points: <span className="text-white">{task.points}</span></span>
       </div>
     </div>
   );
 };
 
-const ProjectTasks = ({ projectId, sprint_id }: ProjectTasksProps) => {
+const ProjectTasks = ({ projectId, sprint_id, isProjectClosed = false }: ProjectTasksProps) => {
   console.log("Project ID:", sprint_id);
   const [tasksData, setTasksData] = useState<ApiResponse | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -248,21 +250,21 @@ const sprint = tasksData.sprints.find(s => s.sprint_number === sprint_id);
     <div className="mt-6">
       <h2 className="text-xl font-bold mb-4">Sprint Tasks</h2>
       
-      {/* Updated to make columns more spacious */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* Todo Column */}
-        <div className="bg-gray-900 p-5 rounded-lg shadow-lg">
+        <div className="bg-gray-900 p-4 rounded-lg shadow-lg min-w-0">
           <h3 className="text-lg font-medium mb-5 text-blue-500 border-b border-blue-500 pb-3">
             To Do ({sprint.tasks.todo.length})
           </h3>
           <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
             {sprint.tasks.todo.length > 0 ? (
               sprint.tasks.todo.map((task) => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
-                  status="To Do" 
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  status="To Do"
                   onStatusChange={handleStatusChange}
+                  isProjectClosed={isProjectClosed}
                 />
               ))
             ) : (
@@ -272,18 +274,19 @@ const sprint = tasksData.sprints.find(s => s.sprint_number === sprint_id);
         </div>
         
         {/* In Progress Column */}
-        <div className="bg-gray-900 p-5 rounded-lg shadow-lg">
+        <div className="bg-gray-900 p-4 rounded-lg shadow-lg min-w-0">
           <h3 className="text-lg font-medium mb-5 text-yellow-500 border-b border-yellow-500 pb-3">
             In Progress ({sprint.tasks.in_progress.length})
           </h3>
           <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
             {sprint.tasks.in_progress.length > 0 ? (
               sprint.tasks.in_progress.map((task) => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
-                  status="In Progress" 
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  status="In Progress"
                   onStatusChange={handleStatusChange}
+                  isProjectClosed={isProjectClosed}
                 />
               ))
             ) : (
@@ -293,18 +296,19 @@ const sprint = tasksData.sprints.find(s => s.sprint_number === sprint_id);
         </div>
         
         {/* Completed Column */}
-        <div className="bg-gray-900 p-5 rounded-lg shadow-lg">
+        <div className="bg-gray-900 p-4 rounded-lg shadow-lg min-w-0">
           <h3 className="text-lg font-medium mb-5 text-green-500 border-b border-green-500 pb-3">
             Completed ({sprint.tasks.completed.length})
           </h3>
           <div className="space-y-4 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
             {sprint.tasks.completed.length > 0 ? (
               sprint.tasks.completed.map((task) => (
-                <TaskCard 
-                  key={task.id} 
-                  task={task} 
-                  status="Completed" 
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  status="Completed"
                   onStatusChange={handleStatusChange}
+                  isProjectClosed={isProjectClosed}
                 />
               ))
             ) : (

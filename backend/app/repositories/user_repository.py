@@ -126,27 +126,47 @@ def update_profile_sql(data):
             print(e,"s")
 
 
-def list_users_sql():
-   #for students only:
-   with engine.connect() as conn:
+def list_users_sql(limit=10, offset=0, search="", skills=None):
+    """List users with optional full-text search and skill filtering, paginated."""
+    with engine.connect() as conn:
         try:
-            query = text("""
+            search_param = f"%{search}%" if search else "%"
+            params = {"search": search_param, "limit": limit, "offset": offset}
+
+            # Build skill filter clauses — each skill must appear in tech_stack (case-insensitive)
+            skill_clauses = ""
+            if skills:
+                for i, skill in enumerate(skills):
+                    key = f"skill_{i}"
+                    skill_clauses += f"""
+                        AND EXISTS (
+                            SELECT 1 FROM unnest(u.tech_stack) s
+                            WHERE s ILIKE :{key}
+                        )"""
+                    params[key] = skill
+
+            count_sql = f"""
+                SELECT COUNT(DISTINCT u.roll_no)
+                FROM "User" u
+                WHERE (u.name ILIKE :search OR u.email ILIKE :search)
+                {skill_clauses}
+            """
+            total_row = conn.execute(text(count_sql), params).fetchone()
+            total = total_row[0] if total_row else 0
+
+            query_sql = f"""
                 SELECT
                     u.*,
-
-                    COUNT(u.roll_no) AS project_count
-                FROM
-                    "User" u
-                LEFT JOIN
-                    "projectmembers" p ON u.roll_no = p.member_id
-                left JOIN
-                    "Project" pa ON p.project_id = pa.project_id
-
-                GROUP BY
-                    u.roll_no
-            """)
-
-            result = conn.execute(query)
+                    COUNT(p.project_id) AS project_count
+                FROM "User" u
+                LEFT JOIN "projectmembers" p ON u.roll_no = p.member_id
+                WHERE (u.name ILIKE :search OR u.email ILIKE :search)
+                {skill_clauses}
+                GROUP BY u.roll_no
+                ORDER BY u.name ASC
+                LIMIT :limit OFFSET :offset
+            """
+            result = conn.execute(text(query_sql), params)
             rows = result.fetchall()
 
             data = [
@@ -161,14 +181,29 @@ def list_users_sql():
                     "rating": row[7],
                     "email_update": row[8],
                     "project_update": row[9],
-                    "name":row[10],
-                    "project_count": row[11]   # Count of users per project
+                    "name": row[10],
+                    "project_count": row[11]
                 }
                 for row in rows
             ]
 
-            return jsonify({"projects": data})
+            return jsonify({"projects": data, "total": total, "offset": offset, "limit": limit})
 
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
+
+def list_skills_sql():
+    """Return all unique skills from tech_stack, lowercased and deduplicated."""
+    with engine.connect() as conn:
+        try:
+            rows = conn.execute(text("""
+                SELECT DISTINCT lower(skill) AS skill
+                FROM "User", unnest(tech_stack) AS skill
+                WHERE skill IS NOT NULL AND skill <> ''
+                ORDER BY skill ASC
+            """)).fetchall()
+            return jsonify({"skills": [row[0] for row in rows]})
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -180,4 +215,5 @@ __all__ = [
     "profile_views",
     "update_profile_sql",
     "list_users_sql",
+    "list_skills_sql",
 ]

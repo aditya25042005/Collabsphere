@@ -13,6 +13,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+
 import { toast } from "sonner"
 import {
   Dialog,
@@ -21,6 +22,8 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogClose,
+  DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog"
 import { Slider } from "@/components/ui/slider" // Import Slider for rating
 import { API_BASE } from "@/lib/api"
@@ -37,17 +40,26 @@ interface ProjectDetails {
   tech_stack: string
   title: string
   status?: "planning" | "running" | "completed"
-  rating?: number // Add rating field
+  rating?: number | null
+  rating_count?: number
+  is_member?: boolean
+  has_rated?: boolean
+  admin_id?: string | number
 }
 
 interface ProjectDetailsProps {
   project_id: number;
   onTitleChange?: (title: string) => void;
+  onStatusChange?: (status: string) => void;
+  onAdminIdChange?: (adminId: string | number) => void;
 }
 
-const fetchProjectDetails = async(project_id: number) => {
+const fetchProjectDetails = async(project_id: number, userId?: string) => {
   try {
-    const response = await fetch(`${API_BASE}/project/view_details?project_id=${project_id}`, {
+    const url = userId
+      ? `${API_BASE}/project/view_details?project_id=${project_id}&user_id=${userId}`
+      : `${API_BASE}/project/view_details?project_id=${project_id}`;
+    const response = await fetch(url, {
       method: "GET",
       credentials: "include",
       headers: {
@@ -98,39 +110,42 @@ const updateProjectStatus = async (project_id: number, newStatus: string, userId
 
 // New function to submit project rating
 const submitProjectRating = async (project_id: number, userId: string, rating: number) => {
-  try {
-    const response = await fetch(`${API_BASE}/project/give_rating`, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        project_id,
-        user_id: userId,
-        rating: rating, // Rating out of 10
-      }),
-    });
+  const response = await fetch(`${API_BASE}/rate_project`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      project_id,
+      user_id: userId,
+      score: rating,
+    }),
+  });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! Status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    return data;
-  } catch (error) {
-    console.error("Error submitting project rating:", error);
-    throw error;
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.error || `Request failed (${response.status})`);
   }
+  return data;
 }
 
-export default function ProjectDetails({ project_id, onTitleChange }: ProjectDetailsProps) {
+interface ProjectRating {
+  score: number;
+  comment: string | null;
+  reviewer_name: string;
+}
+
+export default function ProjectDetails({ project_id, onTitleChange, onStatusChange, onAdminIdChange }: ProjectDetailsProps) {
   const [projectDetails, setProjectDetails] = useState<ProjectDetails>();
   const [loading, setLoading] = useState(true);
   const [statusUpdating, setStatusUpdating] = useState(false);
-  const [ratingValue, setRatingValue] = useState<number>(5); // Default rating 5/10
+  const [ratingValue, setRatingValue] = useState<number>(5);
+  const [ratingComment, setRatingComment] = useState<string>("");
   const [isRatingDialogOpen, setIsRatingDialogOpen] = useState(false);
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [projectRatings, setProjectRatings] = useState<ProjectRating[]>([]);
+
   const { user } = useUserContext();
   
   // Get user ID from context or local storage
@@ -138,27 +153,40 @@ export default function ProjectDetails({ project_id, onTitleChange }: ProjectDet
   const parsedUser = userlocal ? JSON.parse(userlocal) : null;
   const userId = user?.id ? user.id : parsedUser?.id;
  
+  const fetchRatings = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/project/ratings?project_id=${project_id}`, {
+        credentials: "include",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setProjectRatings(data.ratings ?? []);
+      }
+    } catch (e) {
+      console.error("Error fetching ratings:", e);
+    }
+  };
+
   useEffect(() => {
     const getProjectDetails = async () => {
       setLoading(true);
-      const details = await fetchProjectDetails(project_id);
+      const details = await fetchProjectDetails(project_id, userId);
       if (details) {
-        // Assume running status if not provided
         setProjectDetails({
           ...details,
-          status: details.status || "running",
-          rating: details.rating || 0,
+          status: details.status || "planning",
         });
-        
-        if (onTitleChange && details.title) {
-          onTitleChange(details.title);
-        }
+
+        if (onTitleChange && details.title) onTitleChange(details.title);
+        if (onStatusChange && details.status) onStatusChange(details.status);
+        if (onAdminIdChange && details.admin_id) onAdminIdChange(details.admin_id);
       }
       setLoading(false);
     };
-    
+
     getProjectDetails();
-  }, [project_id]);
+    fetchRatings();
+  }, [project_id, userId]);
   
   // Handle status change
   const handleStatusChange = async (newStatus: "planning" | "running" | "completed") => {
@@ -166,17 +194,21 @@ export default function ProjectDetails({ project_id, onTitleChange }: ProjectDet
       toast.error("You need to be logged in to change project status");
       return;
     }
-    
     try {
       setStatusUpdating(true);
-      await updateProjectStatus(project_id, newStatus, userId);
-      
-      // Update local state
-      setProjectDetails(prev => prev ? {...prev, status: newStatus} : prev);
-      
-      toast.success(`Project status updated to ${newStatus}`);
+      const response = await fetch(`${API_BASE}/project/update_status`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id, user_id: userId, status: newStatus }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || "Failed to update status");
+      setProjectDetails(prev => prev ? { ...prev, status: newStatus } : prev);
+      if (onStatusChange) onStatusChange(newStatus);
+      toast.success(`Status updated to ${newStatus}`);
     } catch (error) {
-      toast.error("Failed to update project status");
+      toast.error(error instanceof Error ? error.message : "Failed to update status");
     } finally {
       setStatusUpdating(false);
     }
@@ -188,23 +220,40 @@ export default function ProjectDetails({ project_id, onTitleChange }: ProjectDet
       toast.error("You need to be logged in to rate a project");
       return;
     }
-    
+
     try {
       setIsSubmittingRating(true);
-      await submitProjectRating(project_id, userId, ratingValue);
-      
-      // Update local state
-      setProjectDetails(prev => prev ? {...prev, rating: ratingValue} : prev);
-      
-      toast.success(`Project rated ${ratingValue} out of 10`);
+      const res = await fetch(`${API_BASE}/rate_project`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_id, user_id: userId, score: ratingValue, comment: ratingComment }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`);
+      setProjectDetails(prev => prev ? { ...prev, rating: ratingValue, has_rated: true } : prev);
+      setRatingComment("");
+      toast.success(`Rated ${ratingValue}/10 — thanks for your feedback!`);
       setIsRatingDialogOpen(false);
+      fetchRatings();
     } catch (error) {
-      toast.error("Failed to submit project rating");
+      toast.error(error instanceof Error ? error.message : "Failed to submit rating");
     } finally {
       setIsSubmittingRating(false);
     }
   };
   
+
+  const isAdmin = projectDetails?.admin_id !== undefined &&
+    String(projectDetails.admin_id) === String(userId);
+
+  const statusLabelMap: Record<string, string> = {
+    planning: "Planning",
+    running: "Active",
+    completed: "Completed",
+  };
+  const currentStatusLabel = statusLabelMap[projectDetails?.status ?? ""] ?? projectDetails?.project_type ?? "—";
+
   // Show loading state
   if (loading) {
     return (
@@ -269,7 +318,7 @@ export default function ProjectDetails({ project_id, onTitleChange }: ProjectDet
   // Generate stars for rating display
   const renderRatingStars = (rating: number) => {
     const stars = [];
-    const filledStars = Math.round(rating / 2); // Convert 10-scale to 5-star scale
+    const filledStars = Math.round(rating); // 0-5 scale
     
     for (let i = 0; i < 5; i++) {
       stars.push(
@@ -288,68 +337,101 @@ export default function ProjectDetails({ project_id, onTitleChange }: ProjectDet
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="md:col-span-2 space-y-6">
           <Card className="bg-zinc-900 border-zinc-800">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Project Overview</CardTitle>
-              
-              {/* Rating Display and Dialog Trigger */}
+            <CardHeader className="flex flex-row items-start justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <CardTitle>Project Overview</CardTitle>
+              </div>
+
+              {/* Rating section — members see current rating, outsiders can rate */}
               <div className="flex flex-col items-end">
-                <div className="flex items-center gap-1 mb-1">
-                  {renderRatingStars(projectDetails.rating || 0)}
-                  <span className="text-sm text-muted-foreground ml-1">
-                    {projectDetails.rating ? (projectDetails.rating / 10 * 5).toFixed(1) : "0"}/5
+                {projectDetails.rating_count && projectDetails.rating_count > 0 ? (
+                  <div className="flex items-center gap-1 mb-1">
+                    {renderRatingStars(projectDetails.rating ?? 0)}
+                    <span className="text-sm text-muted-foreground ml-1">
+                      {(projectDetails.rating ?? 0).toFixed(1)}/5
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1 mb-1">
+                    {renderRatingStars(0)}
+                    <span className="text-xs text-muted-foreground ml-1">Not rated yet</span>
+                  </div>
+                )}
+                {projectDetails.rating_count !== undefined && projectDetails.rating_count > 0 && (
+                  <span className="text-xs text-muted-foreground mb-1">
+                    {projectDetails.rating_count} {projectDetails.rating_count === 1 ? "person" : "people"} rated
                   </span>
-                </div>
-                
-                <Dialog open={isRatingDialogOpen} onOpenChange={setIsRatingDialogOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="sm">
-                      Rate Project
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Rate this project</DialogTitle>
-                    </DialogHeader>
-                    <div className="py-4">
-                      <div className="flex flex-col items-center space-y-6">
-                        <div className="flex items-center gap-1">
-                          {[...Array(5)].map((_, i) => (
-                            <Star 
-                              key={i}
-                              className={`h-8 w-8 ${i < (ratingValue / 2) ? "text-yellow-400 fill-yellow-400" : "text-gray-400"}`}
+                )}
+
+                {projectDetails.is_member ? (
+                  <span className="text-xs text-muted-foreground">Team member</span>
+                ) : projectDetails.status !== "completed" ? (
+                  <span className="text-xs text-muted-foreground">Rating opens when project closes</span>
+                ) : projectDetails.has_rated ? (
+                  <span className="text-xs text-green-500">You rated this project</span>
+                ) : (
+                  <Dialog open={isRatingDialogOpen} onOpenChange={setIsRatingDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        Rate Project
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Rate this project</DialogTitle>
+                      </DialogHeader>
+                      <div className="py-4">
+                        <div className="flex flex-col items-center space-y-6">
+                          <div className="flex items-center gap-1">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`h-8 w-8 ${i < (ratingValue / 2) ? "text-yellow-400 fill-yellow-400" : "text-gray-400"}`}
+                              />
+                            ))}
+                          </div>
+                          <div className="w-full px-1">
+                            <Slider
+                              defaultValue={[ratingValue]}
+                              min={1}
+                              max={10}
+                              step={1}
+                              onValueChange={(value) => setRatingValue(value[0])}
+                              className="w-full"
                             />
-                          ))}
-                        </div>
-                        <div className="w-full px-1">
-                          <Slider 
-                            defaultValue={[ratingValue]} 
-                            max={10} 
-                            step={1}
-                            onValueChange={(value) => setRatingValue(value[0])}
-                            className="w-full"
-                          />
-                          <div className="flex justify-between mt-2">
-                            <span className="text-sm text-muted-foreground">1</span>
-                            <span className="text-sm font-medium">{ratingValue}/10</span>
-                            <span className="text-sm text-muted-foreground">10</span>
+                            <div className="flex justify-between mt-2">
+                              <span className="text-sm text-muted-foreground">1</span>
+                              <span className="text-sm font-medium">{ratingValue}/10</span>
+                              <span className="text-sm text-muted-foreground">10</span>
+                            </div>
+                          </div>
+                          <div className="w-full">
+                            <label className="text-sm text-muted-foreground mb-1 block">Comment (optional)</label>
+                            <textarea
+                              value={ratingComment}
+                              onChange={(e) => setRatingComment(e.target.value)}
+                              placeholder="Share your thoughts about this project..."
+                              rows={3}
+                              className="w-full rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:ring-1 focus:ring-pink-500 resize-none"
+                            />
+                          </div>
+                          <div className="flex justify-end gap-2 w-full mt-4">
+                            <DialogClose asChild>
+                              <Button variant="outline">Cancel</Button>
+                            </DialogClose>
+                            <Button
+                              onClick={handleRatingSubmit}
+                              disabled={isSubmittingRating}
+                              className="bg-pink-500 hover:bg-pink-600"
+                            >
+                              {isSubmittingRating ? "Submitting..." : "Submit Rating"}
+                            </Button>
                           </div>
                         </div>
-                        <div className="flex justify-end gap-2 w-full mt-4">
-                          <DialogClose asChild>
-                            <Button variant="outline">Cancel</Button>
-                          </DialogClose>
-                          <Button 
-                            onClick={handleRatingSubmit}
-                            disabled={isSubmittingRating}
-                            className="bg-pink-500 hover:bg-pink-600"
-                          >
-                            {isSubmittingRating ? "Submitting..." : "Submit Rating"}
-                          </Button>
-                        </div>
                       </div>
-                    </div>
-                  </DialogContent>
-                </Dialog>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -359,8 +441,8 @@ export default function ProjectDetails({ project_id, onTitleChange }: ProjectDet
                 <div className="flex items-start">
                   <Briefcase className="h-5 w-5 mr-2 text-muted-foreground mt-0.5" />
                   <div>
-                    <p className="text-sm text-muted-foreground">Project Type</p>
-                    <p className="font-medium">{projectDetails.project_type}</p>
+                    <p className="text-sm text-muted-foreground">Project Status</p>
+                    <p className="font-medium">{currentStatusLabel}</p>
                   </div>
                 </div>
 
@@ -426,28 +508,73 @@ export default function ProjectDetails({ project_id, onTitleChange }: ProjectDet
               </div>
             </CardContent>
           </Card>
+
+          {/* Ratings & Comments */}
+          <Card className="bg-zinc-900 border-zinc-800">
+            <CardHeader>
+              <CardTitle>Ratings &amp; Reviews</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {projectRatings.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No reviews yet.</p>
+              ) : (
+                <div className="space-y-4">
+                  {projectRatings.map((r, i) => (
+                    <div key={i} className="border-b border-zinc-800 pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-white">{r.reviewer_name}</span>
+                        <div className="flex items-center gap-1">
+                          {[...Array(5)].map((_, s) => (
+                            <Star
+                              key={s}
+                              className={`h-3.5 w-3.5 ${s < Math.round(r.score) ? "text-yellow-400 fill-yellow-400" : "text-zinc-600"}`}
+                            />
+                          ))}
+                          <span className="text-xs text-muted-foreground ml-1">{r.score}/5</span>
+                        </div>
+                      </div>
+                      {r.comment && (
+                        <p className="text-sm text-zinc-400 leading-relaxed">{r.comment}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         <div className="space-y-6">
-          {/* Project Status Card - New addition */}
+          {/* Project Status Card */}
           <Card className="bg-zinc-900 border-zinc-800">
             <CardHeader className="pb-3">
               <div className="flex justify-between items-center">
                 <CardTitle className="text-sm font-medium">Project Status</CardTitle>
-                <DropdownMenu>
-                
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleStatusChange("planning")}>
-                      Planning
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleStatusChange("running")}>
-                      Running
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleStatusChange("completed")}>
-                      Completed
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {isAdmin && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={statusUpdating}
+                        className="text-xs"
+                      >
+                        {statusUpdating ? "Updating…" : "Change"}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleStatusChange("planning")}>
+                        Planning
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleStatusChange("running")}>
+                        Running
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleStatusChange("completed")}>
+                        Completed
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
               </div>
             </CardHeader>
             <CardContent>

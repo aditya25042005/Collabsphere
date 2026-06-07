@@ -7,9 +7,9 @@ from app.repositories.task_repository import (
 from app.repositories.sprint_repository import get_sprint_status
 
 STATUS_MAPPING = {
-    "To Do": "pending",
-    "In Progress": "review",
-    "Completed": "done",
+    "to do": "pending",
+    "in progress": "review",
+    "completed": "done",
 }
 
 
@@ -29,7 +29,7 @@ def add_task_service(data):
     if sprint_status != "open":
         return False, "Sprint is not open"
 
-    db_status = STATUS_MAPPING.get(status_raw)
+    db_status = STATUS_MAPPING.get(status_raw.lower())
     if not db_status:
         return False, "Invalid status value"
 
@@ -38,7 +38,7 @@ def add_task_service(data):
 
 
 def update_task_status_service(task_id, frontend_status):
-    db_status = STATUS_MAPPING.get(frontend_status)
+    db_status = STATUS_MAPPING.get(frontend_status.lower() if frontend_status else "")
     if not db_status:
         return False, f"Invalid status: {frontend_status}"
     success = update_task_status(task_id, db_status)
@@ -46,15 +46,18 @@ def update_task_status_service(task_id, frontend_status):
 
 
 def update_task_service(task_id, updates: dict):
-    if "status" in updates and updates["status"] in STATUS_MAPPING:
-        updates["status"] = STATUS_MAPPING[updates["status"]]
+    if "status" in updates:
+        db_status = STATUS_MAPPING.get(updates["status"].lower() if updates["status"] else "")
+        if not db_status:
+            return False, f"Invalid status: {updates['status']}"
+        updates["status"] = db_status
     success = update_task(task_id, **updates)
-    return success
+    return success, "Updated" if success else "Failed"
 
 
 def change_task_status_service(task_id, frontend_status):
     """Generic helper used by start / complete / reopen routes."""
-    db_status = STATUS_MAPPING.get(frontend_status)
+    db_status = STATUS_MAPPING.get(frontend_status.lower() if frontend_status else "")
     if not db_status:
         return False, f"Invalid status: {frontend_status}"
     success = update_task(task_id, status=db_status)

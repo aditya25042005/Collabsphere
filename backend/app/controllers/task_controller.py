@@ -85,10 +85,10 @@ def update_task_controller():
     if not updates:
         return jsonify({"error": "No fields provided to update"}), 400
 
-    success = update_task_service(task_id, updates)
+    success, msg = update_task_service(task_id, updates)
     if success:
         return jsonify({"message": "Task updated successfully!"}), 200
-    return jsonify({"error": "Failed to update task"}), 500
+    return jsonify({"error": msg or "Failed to update task"}), 400
 
 
 def start_task_controller():
